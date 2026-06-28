@@ -1,10 +1,9 @@
 from torch.utils.data import DataLoader
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from dataset import build_test_dataset, tokenizer
+from model import build_model
 
 test_dataset = build_test_dataset('data/src1_test.txt', 'data/test',)
-
-model = GPT2LMHeadModel.from_pretrained('outputs/finetune/final')
 
 def generate_references():
     with open('outputs/generations/references.txt', 'w') as output:
@@ -17,6 +16,17 @@ def generate_references():
                     prev = mr
                 output.write(phrase+'\n')
 
+def write_outputs(dataloader, model: GPT2LMHeadModel, file):
+    with open(file, 'w') as f:
+        with open('outputs/generations/bruh.txt', 'w') as g:
+            for input in dataloader:
+                output = model.generate(**input, max_new_tokens=100)
+                output = tokenizer.decode(output, skip_special_tokens=False)
+                # print(output)
+                g.write(output[0] + '\n')
+                output = output[0].split(tokenizer.eos_token)[1]
+                f.write(output + '\n')
+
 
 
 dataloader = DataLoader(
@@ -24,12 +34,8 @@ dataloader = DataLoader(
     shuffle=False,
 )
 
-with open('outputs/generations/finetune.txt', 'w') as f:
-    for input in dataloader:
-        output = model.generate(**input)
-        output = tokenizer.decode(output, skip_special_tokens=False)
-        # print(output)
-        output = output[0].split(tokenizer.eos_token)[1]
-        f.write(output + '\n')
 
 # generate_references()
+# write_outputs(dataloader, build_model('outputs/finetune/final'), 'outputs/generations/finetune.txt')
+write_outputs(dataloader, build_model('outputs/lora/final', True), 'outputs/generations/lora.txt')
+

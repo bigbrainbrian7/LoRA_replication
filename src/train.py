@@ -1,8 +1,9 @@
+import sys
 import torch
 
 from transformers import TrainingArguments, Trainer
 from dataset import tokenizer, build_dataset
-from model import model
+from model import build_model
 from torch.nn.utils.rnn import pad_sequence
 
 train_dataset = build_dataset('data/src1_train.txt', 'data/train',)
@@ -22,32 +23,63 @@ def data2text_collator(features):
     )
     return {"input_ids": input_ids, "labels": labels}
 
-training_args = TrainingArguments(
-    output_dir="outputs/finetune/checkpoints",
-    num_train_epochs=5,
-    #gpu cannot handle batch size of 10, accumulate to simulate to replicate study hyperparameters
-    #will unfortunately differ marginally
-    per_device_train_batch_size=2,
-    per_device_eval_batch_size=2,
-    gradient_accumulation_steps=5,
-    learning_rate=5e-5,
-    lr_scheduler_type="linear",
-    warmup_steps=100,
-    weight_decay=0.01,
-    logging_steps=100,
-    eval_strategy="epoch",
-    save_strategy="epoch",
-    load_best_model_at_end=True,
-)
-
-trainer = Trainer(
-    model=model,
-    args=training_args,
-    data_collator=data2text_collator,
-    train_dataset=train_dataset,
-    eval_dataset=valid_dataset
-)
 
 if __name__ == '__main__':
-    trainer.train()
-    trainer.save_model('outputs/finetune/final')
+    if sys.argv[1] == 'lora':
+        print('bruh')
+        training_args = TrainingArguments(
+            output_dir="outputs/lora/checkpoints",
+            num_train_epochs=5,
+            per_device_train_batch_size=8,
+            per_device_eval_batch_size=8,
+            # gradient_accumulation_steps=5,
+            learning_rate=2e-4,
+            lr_scheduler_type="linear",
+            warmup_steps=100,
+            weight_decay=0.01,
+            logging_steps=100,
+            eval_strategy="epoch",
+            save_strategy="epoch",
+            load_best_model_at_end=True,
+        )
+
+        trainer = Trainer(
+            model=build_model(use_lora=True),
+            args=training_args,
+            data_collator=data2text_collator,
+            train_dataset=train_dataset,
+            eval_dataset=valid_dataset
+        )
+
+        trainer.train()
+        trainer.save_model('outputs/lora/final')
+
+    else:
+        training_args = TrainingArguments(
+            output_dir="outputs/finetune/checkpoints",
+            num_train_epochs=5,
+            #gpu cannot handle batch size of 10, accumulate to simulate to replicate study hyperparameters
+            #will unfortunately differ marginally
+            per_device_train_batch_size=2,
+            per_device_eval_batch_size=2,
+            gradient_accumulation_steps=5,
+            learning_rate=5e-5,
+            lr_scheduler_type="linear",
+            warmup_steps=100,
+            weight_decay=0.01,
+            logging_steps=100,
+            eval_strategy="epoch",
+            save_strategy="epoch",
+            load_best_model_at_end=True,
+        )
+
+        trainer = Trainer(
+            model=build_model(use_lora=False),
+            args=training_args,
+            data_collator=data2text_collator,
+            train_dataset=train_dataset,
+            eval_dataset=valid_dataset
+        )
+
+        trainer.train()
+        trainer.save_model('outputs/finetune/final')
